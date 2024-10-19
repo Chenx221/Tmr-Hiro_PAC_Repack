@@ -1,0 +1,11 @@
+script
+
+06 00 50 00 14 00 头 <-检验
+
+record_count	4B	int	RAW
+[ Data, 数量↑
+chunk_size	2B	ushort	RAW(解密时值-4用)
+unknown		4B	x	RAW
+chunk		*B	byte[]	Encrypt(解密需RotByteR 4)
+]
+
