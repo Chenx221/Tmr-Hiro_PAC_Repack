@@ -1,0 +1,28 @@
+count		short	2B
+name_length	uint	1B
+data_offset	uint	4B
+
+如果data_offset=7+(name_length+8)*count ->v1
+如果data_offset=7+(name_length+12)*count ->v2
+
+index_offset=7
+
+[ INDEX
+name		*string	name_length
+{ v1
+entryOffset	uint	4B (+data_offset *相对整个文件而言)
+entrySize	uint	4B
+}
+{ v2
+entryOffset	long	8B (+data_offset *同上)
+entrySize	uint	4B
+}
+]
+
+[ DATA
+]
+
+文件处理
+.ogg/.grd/.srp全部去掉
+
+

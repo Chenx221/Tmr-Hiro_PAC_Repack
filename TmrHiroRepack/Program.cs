@@ -63,7 +63,21 @@ namespace TmrHiroRepack
             Encoding? shiftJis = provider.GetEncoding("shift-jis");
             string[] files = Directory.GetFiles(folderPath);
             short count = (short)files.Length; //文件数量
-            byte name_length = 0x16; //文件名长度(貌似固定16?)
+            string[] extensions = [".ogg", ".grd", ".srp"]; //需要移除的文件后缀，因为这是Garbro添加的
+            int max_name_length = 0;
+            foreach (string file in files)
+            {
+                string fileName = Path.GetFileName(file);
+                foreach (var extension in extensions)
+                {
+                    if (fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
+                    {
+                        fileName = fileName[..^extension.Length];
+                    }
+                }
+                max_name_length = Math.Max(max_name_length, shiftJis.GetBytes(fileName).Length);
+            }
+            byte name_length = (byte)max_name_length; //文件名长度,每个封包值都不同
             uint data_offset;
             if (version == 1)
                 data_offset = 7 + ((uint)name_length + 8) * (uint)count; //Data区偏移
@@ -73,7 +87,6 @@ namespace TmrHiroRepack
                 throw new Exception("Invalid Version");
             long offset = 0; //Index区偏移
             List<Index> indexs = [];
-            string[] extensions = [".ogg", ".grd", ".srp"]; //需要移除的文件后缀，因为这是Garbro添加的
             foreach (string file in files)
             {
                 Index i = new();
@@ -85,8 +98,6 @@ namespace TmrHiroRepack
                     if (fileName.EndsWith(extension, StringComparison.OrdinalIgnoreCase))
                     {
                         fileName = fileName[..^extension.Length];
-                        if (shiftJis.GetBytes(fileName).Length > name_length)
-                            throw new Exception("Something Wrong, File name too long");
                     }
                 }
                 i.name = fileName;
@@ -135,8 +146,31 @@ namespace TmrHiroRepack
             }
             foreach (string file in files)
             {
-                using FileStream fs2 = new(file, FileMode.Open);
-                fs2.CopyTo(fs);
+                //检查是否是脚本文件(文件后缀.srp)
+                if (Path.GetExtension(file) == ".srp") // Script file detected
+                {
+                    byte[] DecryptData = File.ReadAllBytes(file);
+                    uint offset2 = 0;
+                    int record_count = BitConverter.ToInt32(DecryptData, (int)offset2);
+                    offset2 += 4;
+                    for (int i = 0; i < record_count; i++)
+                    {
+                        ushort chunk_size = (ushort)(BitConverter.ToUInt16(DecryptData, (int)offset2) - 4); //我知道这里有潜在的问题，但我不相信哪个游戏单个script文件有2G
+                        offset2 += 6;
+                        for (int j = 0; j < chunk_size; j++)
+                        {
+                            DecryptData[offset2] = Utils.RotByteL(DecryptData[offset2], 4);
+                            offset2++;
+                        }
+                    }
+                    bw.Write(DecryptData);
+                }
+                else
+                {
+                    using FileStream fs2 = new(file, FileMode.Open);
+                    fs2.CopyTo(fs);
+                }
+
             }
             return true;
         }
