@@ -72,8 +72,8 @@ namespace TmrHiroRepack
             else
                 throw new Exception("Invalid Version");
             long offset = 0; //Index区偏移
-            List<Index> indexs = new();
-            string[] extensions = { ".ogg", ".grd", ".srp" }; //需要移除的文件后缀，因为这是Garbro添加的
+            List<Index> indexs = [];
+            string[] extensions = [".ogg", ".grd", ".srp"]; //需要移除的文件后缀，因为这是Garbro添加的
             foreach (string file in files)
             {
                 Index i = new();
@@ -112,35 +112,31 @@ namespace TmrHiroRepack
             }
             //准备开写
             string outputPath = Path.Combine(Path.GetDirectoryName(folderPath), Path.GetFileName(folderPath) + ".pac");
-            using (FileStream fs = new(outputPath, FileMode.Create))
-            using (BinaryWriter bw = new(fs))
+            using FileStream fs = new(outputPath, FileMode.Create);
+            using BinaryWriter bw = new(fs);
+            bw.Write(count);//文件数量
+            bw.Write(name_length);//文件名长度
+            bw.Write(data_offset);//Data区偏移
+            foreach (Index i in indexs)
             {
-                bw.Write(count);//文件数量
-                bw.Write(name_length);//文件名长度
-                bw.Write(data_offset);//Data区偏移
-                foreach (Index i in indexs)
+                byte[] name = new byte[name_length];
+                Array.Copy(shiftJis.GetBytes(i.name), name, shiftJis.GetBytes(i.name).Length);
+                bw.Write(name);//文件名
+                if (version == 1)
                 {
-                    byte[] name = new byte[name_length];
-                    Array.Copy(shiftJis.GetBytes(i.name), name, shiftJis.GetBytes(i.name).Length);
-                    bw.Write(name);//文件名
-                    if (version == 1)
-                    {
-                        bw.Write(i.entryInfoV1.entryOffset);//文件偏移
-                        bw.Write(i.entryInfoV1.entrySize);//文件大小
-                    }
-                    else if (version == 2)
-                    {
-                        bw.Write(i.entryInfoV2.entryOffset);//文件偏移
-                        bw.Write(i.entryInfoV2.entrySize);//文件大小
-                    }
+                    bw.Write(i.entryInfoV1.entryOffset);//文件偏移
+                    bw.Write(i.entryInfoV1.entrySize);//文件大小
                 }
-                foreach (string file in files)
+                else if (version == 2)
                 {
-                    using (FileStream fs2 = new(file, FileMode.Open))
-                    {
-                        fs2.CopyTo(fs);
-                    }
+                    bw.Write(i.entryInfoV2.entryOffset);//文件偏移
+                    bw.Write(i.entryInfoV2.entrySize);//文件大小
                 }
+            }
+            foreach (string file in files)
+            {
+                using FileStream fs2 = new(file, FileMode.Open);
+                fs2.CopyTo(fs);
             }
             return true;
         }
